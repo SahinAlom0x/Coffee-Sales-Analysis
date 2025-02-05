@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Sales Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        /* General Styles */
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to right, #1e3c72, #2a5298);
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        /* Header with Background */
+        .header {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* File Upload Positioned in the Top Right */
+        .upload-container {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+        }
+        input {
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            font-size: 16px;
+        }
+        
+        /* Dashboard Layout */
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 1200px;
+            margin: auto;
+            width: 100%;
+        }
+        .row {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        /* Chart Styling */
+        .chart {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            flex: 1;
+            min-width: 300px; /* Ensures charts shrink properly */
+            max-width: 600px; /* Prevents overflow */
+            height: 400px;
+        }
+
+        /* KPI Metric Box */
+        .kpi-metric {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: bold;
+            padding: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.3);
+            height: 150px;
+            min-width: 300px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        /* KPI Value */
+        #avgValue {
+            font-size: 48px;
+            font-weight: bold;
+            margin-top: 10px;
+            color: #ffdd57;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .row {
+                flex-direction: column;
+                align-items: center;
+            }
+            .chart, .kpi-metric {
+                width: 90%;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- File Upload Button in Top Right -->
+    <div class="upload-container">
+        <input type="file" id="fileInput" accept=".json">
+    </div>
+
+    <!-- Dashboard Header with Background -->
+    <div class="header">Coffee Sales Performance Dashboard</div>
+
+    <!-- Dashboard Layout -->
+    <div class="container">
+        <div class="row">
+            <div id="salesOverTime" class="chart"></div>
+            <div id="coffeeSales" class="chart"></div>
+        </div>
+        <div class="row">
+            <div id="paymentMethod" class="chart"></div>
+            <div class="chart kpi-metric">
+                <div>Average Transaction Value</div>
+                <div id="avgValue">$0.00</div>
+            </div>
+            <div id="peakSalesHours" class="chart"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = JSON.parse(e.target.result);
+                processData(data);
+            };
+            reader.readAsText(file);
+        });
+
+        function processData(data) {
+            if (!Array.isArray(data)) {
+                data = [data]; // Convert single object to an array
+            }
+
+            // Extract necessary data
+            const dates = data.map(d => d.datetime.split(" ")[0]); 
+            const sales = data.map(d => d.money);
+
+            // Aggregate sales over time
+            const salesByDate = {};
+            dates.forEach((date, i) => {
+                salesByDate[date] = (salesByDate[date] || 0) + sales[i];
+            });
+
+            // Calculate Average Transaction Value
+            const totalSales = sales.reduce((acc, val) => acc + val, 0);
+            const avgTransactionValue = (totalSales / sales.length).toFixed(2);
+            document.getElementById('avgValue').textContent = `$${avgTransactionValue}`;
+
+            // Plot Total Sales Over Time
+            Plotly.newPlot('salesOverTime', [{
+                x: Object.keys(salesByDate),
+                y: Object.values(salesByDate),
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#ffdd57' },
+                marker: { size: 6 }
+            }], { title: 'Total Sales Over Time', xaxis: { title: 'Date' }, yaxis: { title: 'Sales ($)' } });
+
+            // Plot Coffee Sales by Type
+            const coffeeSales = {};
+            data.forEach(d => {
+                coffeeSales[d.coffee_name] = (coffeeSales[d.coffee_name] || 0) + d.money;
+            });
+            Plotly.newPlot('coffeeSales', [{
+                x: Object.keys(coffeeSales),
+                y: Object.values(coffeeSales),
+                type: 'bar',
+                marker: { color: '#ff6f61' }
+            }], { title: 'Coffee Sales by Type', xaxis: { title: 'Coffee Type' }, yaxis: { title: 'Revenue ($)' } });
+
+            // Plot Payment Method Distribution
+            const paymentCounts = {};
+            data.forEach(d => {
+                paymentCounts[d.cash_type] = (paymentCounts[d.cash_type] || 0) + 1;
+            });
+            Plotly.newPlot('paymentMethod', [{
+                labels: Object.keys(paymentCounts),
+                values: Object.values(paymentCounts),
+                type: 'pie'
+            }], { title: 'Payment Method Distribution' });
+
+            // Plot Peak Sales Hours
+            const salesByHour = {};
+            data.forEach(d => {
+                const hour = d.datetime.split(" ")[1].split(":")[0];
+                salesByHour[hour] = (salesByHour[hour] || 0) + 1;
+            });
+            Plotly.newPlot('peakSalesHours', [{
+                x: Object.keys(salesByHour).sort((a, b) => a - b),
+                y: Object.values(salesByHour),
+                type: 'bar',
+                marker: { color: '#1abc9c' }
+            }], { title: 'Peak Sales Hours', xaxis: { title: 'Hour of the Day' }, yaxis: { title: 'Number of Sales' } });
+        }
+    </script>
+
+</body>
+</html>
